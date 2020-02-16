@@ -17,10 +17,8 @@
 				  <el-menu-item index="3">购物车</el-menu-item>
 				  <el-menu-item index="4">消息中心</el-menu-item>
 				  <el-menu-item index="5">订单</el-menu-item>
-				  
-				  
-				  
-				  <el-submenu v-if="user != null" index="6">
+
+				  <el-submenu v-if="token != null" index="6">
 					<template slot="title">用户</template>
 					<el-menu-item index="6-1" style="50px">查看信息</el-menu-item>
 					<el-menu-item index="6-2" style="50px">修改密码</el-menu-item>
@@ -37,25 +35,35 @@
 			:visible.sync="loginDialogParam.show"
 			width="500px"
 			@close="loginDialogClose"
-		>
+		>	<div style="margin-top: -40px;margin-bottom: 10px;">
+				<img src="../assets/defaultphoto.png" style="width: 100px;height: 100px;"/>
+			</div>
 			<el-form
 				:inline="true"
 				:model="loginParam"
 				ref="loginParam"
 				class="demo-form-inline"
 				@submit.native.prevent
+				:rules="loginRules"
 			>
-				<el-form-item label="" prop="name">
+				<el-form-item label="" prop="phone">
 					<el-input v-model="loginParam.phone" placeholder="请输入账号/手机号码" style="width: 300px;" prefix-icon="el-icon-user"></el-input>
 				</el-form-item>
 				<br />
-				<el-form-item label="" prop="name">
-					<el-input v-model="loginParam.password" placeholder="请输入密码" style="width: 300px;" prefix-icon="el-icon-lock"></el-input>
+				<el-form-item label="" prop="password">
+					<el-input v-model="loginParam.password" placeholder="请输入密码" show-password style="width: 300px;" prefix-icon="el-icon-lock"></el-input>
 				</el-form-item>
 				<br />
+				
 				<el-button style="width: 300px;margin-left: -13px;"type="primary" @click="dologin()">登录</el-button>
+				<br />
+				<span class="numberOperation"  @click="forgetPassword()">忘记密码?</span>
+				<span class="numberOperation"  @click="registerUser()">注册账号</span>
 				
 			</el-form>
+			
+			
+			
 		</el-dialog>
 		</el-scrollbar>
 		
@@ -64,6 +72,19 @@
 </template>
 
 <script>
+	 //引入全局对象(用户校验)
+	  import {isvalidPhone} from '../utils/validate'
+	  //定义一个全局的变量
+	  var validPhone=(rule, value, callback)=>{
+	      if (!value){
+	          callback(new Error('请输入手机号码'))
+	      }else  if (!isvalidPhone(value)){
+	        callback(new Error('请输入正确的11位手机号码'))
+	      }else {
+	          callback()
+	      }
+	  }
+	
 	export default{
 		mounted(){
 			this.$router.push({name:'home'})
@@ -77,38 +98,105 @@
 					this.$router.push({name:'category'})
 				}else if(key == '3'){//购物车
 					this.$router.push({name:'shoppingCart'})
+				}else if(key == '5'){//订单
+					this.$router.push({name:'orderForm'})
+				}
+				else if(key == '6-1'){//用户信息
+					this.$router.push({name:'userInfo'})
 				}else if(key == '6-3'){//退出登录
-					sessionStorage.removeItem('user');
-					location.reload()
+					sessionStorage.removeItem('token');
+					location.reload() //刷新页面
 				}else if(key == '7'){//打开登录模态框
-					this.loginDialogParam.show = true;
+					this.showLogin();
 				}
 			},
-			loginDialogClose(){
-				this.loginParam.phone = null
-				this.loginParam.password = null
+			showLogin(){//打开登录界面
+				this.loginDialogParam.show = true;
+			},
+			loginDialogClose(){ //关闭登录界面
+				//this.loginParam.phone = null
+				//this.loginParam.password = null
+				this.$refs["loginParam"].resetFields();//清空对话框里面的值 与 校验警告值
 			},
 			dologin(){//点击模态框中点击登录
-				sessionStorage.setItem("user",true)
-				location.reload()
+			
+				this.$refs["loginParam"].validate(valid => {
+					if(valid){
+						//查询post请求
+						this.$http
+						.get('/api/userInfo/login/'+this.loginParam.phone+'?password='+this.loginParam.password)
+						.then(response => {
+							console.log(response.data)
+							if(response.data.code == '200'){
+								this.$message({
+									message:response.data.msg,
+									type:'success'
+								});
+								//保存用户账号
+								sessionStorage.setItem("token",response.data.data)
+								
+								//alert(sessionStorage.getItem("token"))
+								
+								location.reload()//刷新页面
+								
+							}else{
+								this.$message({
+									message:response.data.msg,
+									type:'error'
+								});
+							}
+							
+						})
+						.catch(error => {
+						  	//弹出消息框
+						  	this.$message({
+								message: '服务器异常',
+								type: 'error'
+						  	});
+						})
+					}
+				});
+			
+				
+			},
+			forgetPassword(){//忘记密码
+				alert("忘记密码")
+			},
+			registerUser(){//注册账号
+				this.$router.push({name:'registerUser'});
+				this.loginDialogParam.show = false;
 			}
 		},
 		data(){
 			return {
-				user:sessionStorage.getItem('user'),
-				loginDialogParam:{
+				token:sessionStorage.getItem('token'),
+				loginDialogParam:{//登录窗口是否显示
 					show:false
 				},
-				loginParam:{
+				
+				loginParam:{//登录的账号与密码
 					phone:null,
 					password:null
+				},
+				loginRules:{//登录校验
+					phone: [
+					    { required: true, trigger: 'blur', validator: validPhone }//这里需要用到全局变量
+					],
+					password:[
+						{ required: true, message: '请输入密码', trigger: 'blur' }
+					]
 				}
 			};
+		},
+		provide(){
+		      return{
+		          showLogin:this.showLogin //可用于子组件调用父组件的方法
+		      }
 		}
 	}
 </script>
 
-<style>
+<style scoped>
 	.el-popup-parent--hidden{
 		padding-right: 0px;
 	}
@@ -148,4 +236,12 @@
 	  text-overflow:ellipsis; 
 	  white-space:nowrap
   }
+  
+  .numberOperation{
+	  text-decoration: underline;
+	  font-size: 10px;
+	  cursor: pointer;
+	  color: #97a8be;
+  }
+  
 </style>
