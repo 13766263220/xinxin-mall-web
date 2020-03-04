@@ -55,8 +55,15 @@
 			next(){//下一步
 			this.$refs["userInfoEdit"].validate(valid => {//判断校验是否成功
 				if(valid){
-					this.$emit('active',2)
-					this.$emit('phone',this.userInfoEdit)
+					if(this.verificationCode == this.userInfoEdit.verificationCode){
+						this.$emit('active',2)
+						this.$emit('phone',this.userInfoEdit)
+					}else{
+						this.$message({
+							type:'warning',
+							message:'请验证手机号'
+						})
+					}
 				}
 			})
 				
@@ -65,8 +72,18 @@
 				this.$emit('active',0)
 			},
 			sendVerification(){//发送验证
+			var isVaild = false;
+			this.$refs["userInfoEdit"].validate(valid => {//判断校验是否成功
+				if(valid){
+					isVaild = true;
+				}})
+			if(isVaild==false){
+				return ;
+			}
+				
+			
 				this.isVerification = true;
-				this.vftion = 60;
+				this.vftion = 60;//一分钟
 				var _this = this;
 				var time = window.setInterval(function(){
 					_this.vftion-=1;
@@ -77,11 +94,19 @@
 					}
 				},1000);
 				
+				this.$http.get('/verificationCode/generateCode',{params:{'phone':this.userInfoEdit.phone}})
+				.then(response =>{
+					if(response.data.code == '200'){
+						this.verificationCode = response.data.data;
+					}
+				})
 			}
 		},
 		data(){
 			return{
 				isVerification:false, //是否可以发送验证
+				verification:false, //验证是否通过
+				verificationCode:'',//验证码
 				vftion:'获取验证码',
 				
 				userInfoEdit:{//用户信息
@@ -93,9 +118,9 @@
 					phone: [
 					    { required: true, trigger: 'blur', validator: validPhone }//这里需要用到全局变量
 					],
-					verificationCode:[
-						{ required: true, message: "请输入验证码", trigger: "blur" }
-					],
+					// verificationCode:[
+					// 	{ required: true, message: "请输入验证码", trigger: "blur" }
+					// ],
 					passWord: [
 					  { required: true, message: "请输入用户密码", trigger: "blur" }
 					]

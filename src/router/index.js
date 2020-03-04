@@ -29,11 +29,6 @@ export default new Router({
 				component:resolve => require(['@/components/views/home'], resolve) //主页
 			},
 			{
-				path:"category",
-				name:"category",
-				component:resolve => require(['@/components/views/category'], resolve) //商品分类
-			},
-			{
 				path:"shoppingCart",
 				name:"shoppingCart",
 				component:resolve => require(['@/components/views/shoppingCart'], resolve) //购物车
